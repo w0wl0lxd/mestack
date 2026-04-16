@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.18.0.0] - 2026-04-15
+
+### Added
+- **Confusion Protocol.** Every workflow skill now has an inline ambiguity gate. When Claude hits a decision that could go two ways (which architecture? which data model? destructive operation with unclear scope?), it stops and asks instead of guessing. Scoped to high-stakes decisions only, so it doesn't slow down routine coding. Addresses Karpathy's #1 AI coding failure mode.
+- **Hermes host support.** gstack now generates skill docs for [Hermes Agent](https://github.com/nousresearch/hermes-agent) with proper tool rewrites (`terminal`, `read_file`, `patch`, `delegate_task`). `./setup --host hermes` prints integration instructions.
+- **GBrain host + brain-first resolver.** GBrain is a "mod" for gstack. When installed, your coding skills become brain-aware: they search your brain for relevant context before starting and save results to your brain after finishing. 10 skills are now brain-aware: /office-hours, /investigate, /plan-ceo-review, /retro, /ship, /qa, /design-review, /plan-eng-review, /cso, and /design-consultation. Compatible with GBrain >= v0.10.0.
+- **GBrain v0.10.0 integration.** Agent instructions now use `gbrain search` (fast keyword lookup) instead of `gbrain query` (expensive hybrid). Every command shows full CLI syntax with `--title`, `--tags`, and heredoc examples. Keyword extraction guidance helps agents search effectively. Entity enrichment auto-creates stub pages for people and companies mentioned in skill output. Throttle errors are named so agents can detect and handle them. A preamble health check runs `gbrain doctor --fast --json` at session start and names failing checks when the brain is degraded.
+- **Skill triggers for GBrain router.** All 38 skill templates now include `triggers:` arrays in their frontmatter, multi-word keywords like "debug this", "ship it", "brainstorm this". These power GBrain's RESOLVER.md skill router and pass `checkResolvable()` validation. Distinct from `voice-triggers:` (speech-to-text aliases).
+- **Hermes brain support.** Hermes agents with GBrain installed as a mod now get brain features automatically. The resolver fallback logic ("if GBrain is not available, proceed without") handles non-GBrain Hermes installs gracefully.
+- **slop:diff in /review.** Every code review now runs `bun run slop:diff` as an advisory diagnostic, catching AI code quality issues (empty catches, redundant abstractions, overcomplicated patterns) before they land. Informational only, never blocking.
+- **Karpathy compatibility.** README now positions gstack as the workflow enforcement layer for [Karpathy-style CLAUDE.md rules](https://github.com/forrestchang/andrej-karpathy-skills) (17K stars). Maps each failure mode to the gstack skill that addresses it.
+
+### Changed
+- **CEO review HARD GATE reinforcement.** "Do NOT make any code changes. Review only." now repeats at every STOP point (12 locations), not just the top. Prompt repetition measurably reduces the "starts implementing" failure mode.
+- **Office-hours design doc visibility.** After writing the design doc, the skill now prints the full path so downstream skills (/plan-ceo-review, /plan-eng-review) can find it.
+- **Investigate investigation history.** Each investigation now logs to the learnings system with `type: "investigation"` and affected file paths. Future investigations on the same files surface prior root causes automatically. Recurring bugs in the same area = architectural smell.
+- **Retro non-git context.** If `~/.gstack/retro-context.md` exists, the retro now reads it for meeting notes, calendar events, and decisions that don't appear in git history.
+- **Native OpenClaw skills improved.** The 4 hand-crafted ClawHub skills (office-hours, ceo-review, investigate, retro) now mirror the template improvements above.
+- **Host count: 8 to 10.** Hermes and GBrain join Claude, Codex, Factory, Kiro, OpenCode, Slate, Cursor, and OpenClaw.
+
 ## [0.17.0.0] - 2026-04-14
 
 ### Added
