@@ -1,17 +1,18 @@
 #!/usr/bin/env bun
 /**
- * Garry's 2013 vs 2026 output throughput comparison.
+ * 2013 vs 2026 output throughput comparison.
  *
  * Rationale: the README hero used to brag "600,000+ lines of production code" as
  * a proxy for productivity. After Louise de Sadeleer's review
  * (https://x.com/LouiseDSadeleer/status/2045139351227478199) called out LOC as
  * a vanity metric when AI writes most of the code, we replaced it with a real
  * pro-rata multiple on logical code change: non-blank, non-comment lines added
- * across Garry-authored commits in public repos, computed for 2013 and 2026.
+ * across authored commits in public repos, computed for 2013 and 2026.
  *
  * Algorithm (per Codex Pass 2 review in PLAN_TUNING_V1):
- *   1. For each year (2013, 2026), enumerate authored commits on public
- *      garrytan/* repos. Email filter: garry@ycombinator.com + known aliases.
+ *   1. For each year (2013, 2026), enumerate authored commits. Author filter
+ *      comes from --email CLI flags (repeatable), the GSTACK_AUTHOR_EMAILS env
+ *      var (comma-separated), or falls back to `git config user.email`.
  *   2. For each commit, git diff <commit>^ <commit> produces a unified diff.
  *   3. Extract ADDED lines from the diff. Classify as "logical" by filtering
  *      out blank lines + single-line comments (per-language regex; imperfect
@@ -21,20 +22,45 @@
  *      private work exclusion.
  *
  * Requires: scc (for classification when available; falls back to regex).
- * Run: bun run scripts/garry-output-comparison.ts [--repo-root <path>]
+ * Run: bun run scripts/garry-output-comparison.ts [--repo-root <path>] [--email <addr>...]
+ *      GSTACK_AUTHOR_EMAILS=a@x.com,b@y.com bun run scripts/garry-output-comparison.ts
  * Output: docs/throughput-2013-vs-2026.json
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
-// Known historical email aliases for Garry. Add more via PR if needed.
-const GARRY_EMAILS = [
-  'garry@ycombinator.com',
-  'garry@posterous.com',
-  'garrytan@gmail.com',
-  'garry@garrytan.com',
-];
+function resolveAuthorEmails(argv: string[]): string[] {
+  const fromArgs: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--email' && argv[i + 1]) {
+      fromArgs.push(argv[i + 1]);
+      i++;
+    }
+  }
+  if (fromArgs.length > 0) return fromArgs;
+
+  const envVar = process.env.GSTACK_AUTHOR_EMAILS;
+  if (envVar && envVar.trim()) {
+    return envVar.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  try {
+    const gitEmail = execSync('git config user.email', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    if (gitEmail) return [gitEmail];
+  } catch {
+    // fall through
+  }
+
+  process.stderr.write(
+    'No author email configured. Pass --email <addr> (repeatable), ' +
+    'set GSTACK_AUTHOR_EMAILS=a@x.com,b@y.com, or configure git user.email.\n'
+  );
+  process.exit(1);
+}
 
 const TARGET_YEARS = [2013, 2026];
 
@@ -139,10 +165,10 @@ function isLogicalLine(line: string): boolean {
   return true;
 }
 
-function enumerateCommits(year: number, repoPath: string): string[] {
+function enumerateCommits(year: number, repoPath: string, authorEmails: string[]): string[] {
   const since = `${year}-01-01`;
   const until = `${year}-12-31`;
-  const authorFlags = GARRY_EMAILS.map(e => `--author=${e}`).join(' ');
+  const authorFlags = authorEmails.map(e => `--author=${e}`).join(' ');
   try {
     const cmd = `git -C "${repoPath}" log --since=${since} --until=${until} ${authorFlags} --pretty=format:'%H' 2>/dev/null`;
     const out = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
@@ -217,8 +243,8 @@ function daysElapsed(year: number, now: Date = new Date()): number {
   return Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1);
 }
 
-function analyzeRepo(repoPath: string, year: number, sccAvailable: boolean, now: Date = new Date()): PerYearResult {
-  const commits = enumerateCommits(year, repoPath);
+function analyzeRepo(repoPath: string, year: number, authorEmails: string[], sccAvailable: boolean, now: Date = new Date()): PerYearResult {
+  const commits = enumerateCommits(year, repoPath, authorEmails);
   const perLang: Record<string, { commits: number; logical_added: number }> = {};
   let rawTotal = 0;
   let logicalTotal = 0;
@@ -312,10 +338,12 @@ function main() {
     process.stderr.write('Continuing with regex-based logical-line classification (an approximation).\n\n');
   }
 
+  const authorEmails = resolveAuthorEmails(args);
+
   // For V1, we analyze the single repo at repoRoot. Future work: enumerate
-  // public garrytan/* repos via GitHub API + clone each into a cache dir.
+  // public repos via GitHub API + clone each into a cache dir.
   const now = new Date();
-  const years = TARGET_YEARS.map(y => analyzeRepo(repoRoot, y, sccAvailable, now));
+  const years = TARGET_YEARS.map(y => analyzeRepo(repoRoot, y, authorEmails, sccAvailable, now));
 
   const y2013 = years.find(y => y.year === 2013);
   const y2026 = years.find(y => y.year === 2026);
@@ -371,8 +399,8 @@ function main() {
       sccAvailable
         ? 'Logical-line classification uses scc-aware regex (approximate).'
         : 'Logical-line classification uses a crude regex fallback (scc not installed). Exclude blank lines + single-line comments; does not catch block comments or docstrings. Approximate.',
-      'This script analyzes a single repo at a time. Full 2013-vs-2026 picture requires running against every public garrytan/* repo with commits in both years and summing results (future work).',
-      'Authorship attribution relies on commit email matching. Historical aliases are listed in GARRY_EMAILS at the top of this script.',
+      'This script analyzes a single repo at a time. Full 2013-vs-2026 picture requires running against every public repo with commits in both years and summing results (future work).',
+      'Authorship attribution relies on commit email matching. Supply historical aliases via --email flags or GSTACK_AUTHOR_EMAILS.',
     ],
     version: 1,
   };
