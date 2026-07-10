@@ -1,23 +1,5 @@
 # Changelog
 
-## [1.60.2.0] - 2026-07-10
-
-## **Gemini model benchmarks no longer rank a silent empty run as a $0 win.**
-
-`gstack-model-benchmark --models gemini` was parsing an older stream-json shape (`message.text`, `result.usage`). Current gemini CLI emits `message.content` (with `role`) and `result.stats`, so the adapter returned empty output, 0 tokens, and no error — a fake success that quietly mis-ranked gemini in comparison tables.
-
-### What this means for you
-
-Gemini benchmark rows now show real assistant text and token counts again. If a run somehow still exits 0 with empty output, it surfaces as an error row instead of a $0 success.
-
-### Itemized changes
-
-#### Fixed
-
-- `test/helpers/providers/gemini.ts`: `parseGeminiStreamJson` accepts current CLI `content` + `role:'assistant'` (ignores user-prompt echoes), reads tokens from `result.stats` with legacy `usage` fallbacks, and takes `model` from `init`. Empty exit-0 output is reported as `error.code=unknown` instead of a silent success (#2159).
-- `test/helpers/providers/gemini.test.ts`: unit coverage for current + legacy stream shapes, user-echo guard, and empty parse.
-- `test/skill-e2e-benchmark-providers.test.ts`: live gemini smoke asserts non-empty output containing the probe string and positive token counts.
-
 ## [1.60.1.0] - 2026-07-09
 
 ## **The /autoplan dual-voice eval is back on the board, catching real regressions.**
