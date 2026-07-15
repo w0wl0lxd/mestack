@@ -44,3 +44,9 @@ docs/throughput-*.json
 
 # gbrain local source-staging dir (capability checks, source clones) — runtime artifact
 .sources/
+
+# mestack local-only planning docs — reference this machine's specific setup, never tracked.
+# See docs/mestack/ARCHITECTURE.md's Anonymization section (this rule exists because these
+# briefly, mistakenly landed in the public repo before this entry was added).
+/MESTACK.md
+/docs/mestack/
