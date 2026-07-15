@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Local mirror of .github/workflows/security-guards.yml — same two checks, run against staged
+# changes before the commit lands, not just at CI. Fails closed: any finding blocks the commit.
+#
+# Installed via scripts/install-hooks.sh (sets core.hooksPath). Portable: only requires bash,
+# gitleaks, and (optionally) trufflehog on PATH — no framework dependency.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
+fail=0
+
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "== gitleaks: secrets =="
+  if ! gitleaks protect --staged --redact -v; then
+    echo "gitleaks found a potential secret in staged changes. Fix or, if it's a genuine false" >&2
+    echo "positive, add a scoped allowlist entry — do not bypass with --no-verify." >&2
+    fail=1
+  fi
+
+  echo "== gitleaks: PII / local-machine paths =="
+  if ! gitleaks protect --staged --redact -v --config "$REPO_ROOT/.gitleaks-pii.toml"; then
+    echo "gitleaks found a local-machine-specific path/identifier (absolute home path, email," >&2
+    echo "SSH key path, private git remote) in staged changes. Use a placeholder instead." >&2
+    fail=1
+  fi
+else
+  echo "WARNING: gitleaks not found on PATH — skipping local pre-commit secret/PII scan." >&2
+  echo "CI will still catch it, but install gitleaks for immediate local feedback." >&2
+fi
+
+if command -v trufflehog >/dev/null 2>&1; then
+  echo "== trufflehog: verified secrets =="
+  if ! git diff --cached --name-only -z | xargs -0 -r trufflehog filesystem --only-verified --fail --no-update; then
+    fail=1
+  fi
+fi
+
+exit "$fail"

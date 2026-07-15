@@ -1,0 +1,49 @@
+name: security-guards
+
+# Blocks any PR/push that introduces a secret or a local-machine-specific identifier (absolute
+# home path, email address, private SSH key path, private git remote). Two separate jobs so a
+# secret finding and a PII/path finding are never conflated in the failure output — see
+# .gitleaks-pii.toml for the PII rule set (generic, pattern-based; no literal usernames/hosts for
+# any specific machine, so this works the same way for any fork/clone of this repo).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: secret scan (gitleaks + trufflehog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks (default ruleset)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: trufflehog (verified secrets only)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified --fail
+
+  pii-paths:
+    name: PII / local-path scan (custom ruleset)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks (PII/local-path ruleset)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks-pii.toml

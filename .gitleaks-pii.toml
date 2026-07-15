@@ -1,0 +1,66 @@
+title = "mestack PII / local-machine-path guard"
+
+# Generic, pattern-based rules only — no literal usernames, hostnames, or paths for any specific
+# machine. These match the *shape* of a local-machine identifier so the guard works the same way
+# for anyone using mestack, not just the environment it was originally built in.
+useDefault = false
+
+[[rules]]
+id = "absolute-home-path-unix"
+description = "Absolute Unix/Linux/macOS home-directory path — leaks local username and filesystem layout"
+regex = '''(?:/home/|/Users/)[A-Za-z0-9_.-]+(?:/[^\s"'` )]*)?'''
+tags = ["pii", "path"]
+
+  [rules.allowlist]
+  description = "Common non-identifying placeholders/examples"
+  regexes = [
+    '''/home/(user|username|<[^>]+>|\$USER|\$\{USER\})''',
+    '''/Users/(user|username|<[^>]+>|\$USER|\$\{USER\})''',
+  ]
+
+[[rules]]
+id = "absolute-home-path-windows"
+description = "Absolute Windows user-profile path — leaks local username and filesystem layout"
+regex = '''[A-Za-z]:\\Users\\[A-Za-z0-9_.-]+(?:\\[^\s"'` )]*)?'''
+tags = ["pii", "path"]
+
+  [rules.allowlist]
+  description = "Common non-identifying placeholders/examples"
+  regexes = ['''[A-Za-z]:\\Users\\(user|username|<[^>]+>|%USERNAME%)''']
+
+[[rules]]
+id = "email-address"
+description = "Email address (PII) committed in tracked content"
+regex = '''[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'''
+tags = ["pii", "email"]
+
+  [rules.allowlist]
+  description = "Placeholder/example/service addresses that aren't personal PII"
+  regexes = [
+    '''[A-Za-z0-9._%+-]+@(example\.(com|org|net)|test\.(com|local)|localhost|invalid)''',
+    '''[0-9]+\+[A-Za-z0-9_-]+@users\.noreply\.github\.com''',
+    '''noreply@anthropic\.com''',
+  ]
+
+[[rules]]
+id = "ssh-key-path-reference"
+description = "Reference to a specific private SSH key path — reveals local key naming/layout"
+# RE2 (gitleaks' regex engine) has no negative-lookahead support, so the config/known_hosts/
+# authorized_keys exclusion is expressed as an allowlist below instead of inline in the regex.
+regex = '''~?/\.ssh/[A-Za-z0-9_.-]+'''
+tags = ["pii", "path"]
+
+  [rules.allowlist]
+  description = "Well-known, non-identifying SSH client files"
+  regexes = ['''~?/\.ssh/(config|known_hosts|authorized_keys)$''']
+
+[[rules]]
+id = "private-git-remote-reference"
+description = "A git remote URL pointing at a private/personal host outside well-known public hosts"
+# Same RE2 constraint — match any ssh:// git remote, allowlist the well-known public hosts.
+regex = '''ssh://git@[A-Za-z0-9_.-]+'''
+tags = ["pii", "path"]
+
+  [rules.allowlist]
+  description = "Well-known public git hosts"
+  regexes = ['''ssh://git@(github\.com|gitlab\.com|bitbucket\.org)''']
