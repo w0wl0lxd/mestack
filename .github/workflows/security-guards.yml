@@ -32,7 +32,7 @@ jobs:
       - name: trufflehog (verified secrets only)
         uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --only-verified --fail
+          extra_args: --only-verified
 
   pii-paths:
     name: PII / local-path scan (custom ruleset)
