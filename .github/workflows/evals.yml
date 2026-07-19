@@ -260,9 +260,25 @@ jobs:
           path: ~/.gstack-dev/evals/*.json
           retention-days: 90
 
+  changelog:
+    name: Changelog
+    runs-on: ubicloud-standard-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.26"
+
+      - name: Check changelog fragments
+        run: uvx --from towncrier towncrier check --compare-with origin/main --staged
+
   report:
     runs-on: ubicloud-standard-8
-    needs: evals
+    needs: [evals, changelog]
     if: always() && github.event_name == 'pull_request'
     timeout-minutes: 5
     permissions:

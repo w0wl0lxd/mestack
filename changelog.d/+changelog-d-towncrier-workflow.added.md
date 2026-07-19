@@ -1,0 +1,1 @@
+towncrier-based changelog workflow: changelog.d/ fragments, pre-commit hook, CI check, package.json scripts (changelog-check, changelog-preview, changelog-build), and updated CONTRIBUTING.md with fragment conventions.

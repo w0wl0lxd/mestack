@@ -46,7 +46,10 @@
     "analytics": "bun run scripts/analytics.ts",
     "test:audit": "bun test test/audit-compliance.test.ts",
     "slop": "npx slop-scan scan . 2>/dev/null || echo 'slop-scan not available (install with: npm i -g slop-scan)'",
-    "slop:diff": "bun run scripts/slop-diff.ts"
+    "slop:diff": "bun run scripts/slop-diff.ts",
+    "changelog-check": "./tools/check-changelog.sh",
+    "changelog-preview": "if command -v towncrier >/dev/null 2>&1; then towncrier build --draft --version 0.0.0; else uvx --from towncrier towncrier build --draft --version 0.0.0; fi",
+    "changelog-build": "if command -v towncrier >/dev/null 2>&1; then towncrier build --yes --version $1; else uvx --from towncrier towncrier build --yes --version $1; fi"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.1.0",

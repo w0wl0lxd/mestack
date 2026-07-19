@@ -392,6 +392,23 @@ When Conductor creates a new workspace, `bin/dev-setup` runs automatically. It d
 
 **`GSTACK_*` env prefix (Conductor-injected keys).** Conductor explicitly strips `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` from every workspace's process env. The `.env` copy path doesn't restore them either — the strip happens after env inheritance. Users who want paid evals, `/sync-gbrain` embeddings, or `claude-agent-sdk` calls to work in a Conductor workspace must set `GSTACK_ANTHROPIC_API_KEY` and `GSTACK_OPENAI_API_KEY` in Conductor's workspace env config; Conductor passes those through untouched. On the gstack side, TS entry points import `lib/conductor-env-shim.ts` as a side effect, which promotes `GSTACK_FOO_API_KEY` to `FOO_API_KEY` when the canonical name is empty. If you add a new TS entry point that hits a paid API, add `import "../lib/conductor-env-shim";` to the top of the file. Today the shim is imported from `bin/gstack-gbrain-sync.ts`, `bin/gstack-model-benchmark`, `scripts/preflight-agent-sdk.ts`, and `test/helpers/e2e-helpers.ts`.
 
+## Changelog fragments
+
+Every PR that changes user-visible behavior must add a fragment to
+`changelog.d/` following the `towncrier` convention documented in
+`changelog.d/README.md`. The pre-commit hook enforces this via
+`tools/check-changelog.sh`. Install the changelog tool with:
+
+```bash
+uv tool install towncrier
+```
+
+Preview the rendered changelog with `bun run changelog-preview` or `towncrier
+build --draft`. To cut a release, run `bun run changelog-build X.Y.Z`.
+
+To bypass the check for a non-user-facing change (e.g., a typo fix in an
+internal comment), set `CHANGELOG_SKIP=1` when committing.
+
 ## Things to know
 
 - **SKILL.md files are generated.** Edit the `.tmpl` template, not the `.md`. Run `bun run gen:skill-docs` to regenerate.
